@@ -24,10 +24,11 @@ YELLOW   = "#FFD700"
 ORANGE   = "#FF8800"
 FONT     = "Segoe UI"
 
+# 스키마의 coin_id 대문자 포맷에 맞춘 매핑
 COIN_COLORS = {
-    "bitcoin":  "#F7931A",
-    "ethereum": "#627EEA",
-    "solana":   "#9945FF"
+    "BTC":  "#F7931A",
+    "ETH":  "#627EEA",
+    "SOL":  "#9945FF"
 }
 
 def get_connection():
@@ -45,7 +46,8 @@ class CryptoDashboard:
         self.root.state("zoomed")
         self.root.configure(bg=BG)
 
-        self.selected_coin = tk.StringVar(value="bitcoin")
+        # 🟢 스키마 기준(coin_id가 VARCHAR(20)이며 대문자 약어 형태)에 맞게 기본값 수정
+        self.selected_coin = tk.StringVar(value="BTC")
         self.selected_days = tk.IntVar(value=365)
         self.clicked_date  = None
 
@@ -87,9 +89,11 @@ class CryptoDashboard:
 
         tk.Label(controls, text="Select Coin:", bg=BG, fg=GRAY,
                  font=(FONT, 10, "bold")).pack(side="left", padx=(0, 6))
-        for text, val in [("Bitcoin (BTC)", "bitcoin"),
-                           ("Ethereum (ETH)", "ethereum"),
-                           ("Solana (SOL)", "solana")]:
+        
+        # 🟢 value 부분을 스키마 coin_id 기준에 맞춰 대문자로 수정
+        for text, val in [("Bitcoin (BTC)", "BTC"),
+                           ("Ethereum (ETH)", "ETH"),
+                           ("Solana (SOL)", "SOL")]:
             tk.Radiobutton(controls, text=text, variable=self.selected_coin,
                            value=val, bg=BG, fg=WHITE, selectcolor=CARD,
                            activebackground=BG, font=(FONT, 10),
@@ -190,15 +194,13 @@ class CryptoDashboard:
         """ 계정 관리를 위한 팝업 서브 윈도우 생성 """
         acc_win = tk.Toplevel(self.root)
         acc_win.title("User Account Engine Control")
-        acc_win.geometry("450x520")
+        acc_win.geometry("450x450") # 🟢 이메일 필드 제거로 인해 크기 살짝 축소
         acc_win.configure(bg=BG)
         acc_win.grab_set()
 
-        # 팝업 제목
         tk.Label(acc_win, text="👤 User Account Management", bg=BG, fg=CYAN, 
                  font=(FONT, 14, "bold"), pady=15).pack()
 
-        # 노트북 스타일 조정 (배경을 완전한 다크모드로 통일)
         style = ttk.Style()
         style.theme_use('default')
         style.configure('TNotebook', background=BG, borderwidth=0, padding=0)
@@ -220,28 +222,27 @@ class CryptoDashboard:
         ent_c_pw = tk.Entry(tab_create, show="*", bg=CARD, fg=WHITE, insertbackground=WHITE, relief="flat", width=25)
         ent_c_pw.grid(row=1, column=1, pady=8, padx=5)
 
-        tk.Label(tab_create, text="Email Address:", bg=CARD2, fg=GRAY).grid(row=2, column=0, sticky="w", pady=8)
-        ent_c_email = tk.Entry(tab_create, bg=CARD, fg=WHITE, insertbackground=WHITE, relief="flat", width=25)
-        ent_c_email.grid(row=2, column=1, pady=8, padx=5)
+        # 🟢 [수정 사항]: users 테이블 구조(id, username, password, created_at)에 맞춰 Email 입력란 삭제
 
         lbl_c_status = tk.Label(tab_create, text="", bg=CARD2, fg=YELLOW, font=(FONT, 9))
         lbl_c_status.grid(row=3, column=0, columnspan=2, pady=10)
 
         def cmd_create():
-            u, p, e = ent_c_user.get().strip(), ent_c_pw.get().strip(), ent_c_email.get().strip()
+            u, p = ent_c_user.get().strip(), ent_c_pw.get().strip()
             if not u or not p:
                 lbl_c_status.config(text="❌ ID and Password are required!", fg=RED)
                 return
             try:
                 db = get_connection()
                 cursor = db.cursor()
+                # 🟢 [수정 사항]: 테이블 매핑 컬럼명 교정 및 현재 시각 추가(password, created_at)
                 cursor.execute("""
-                    INSERT INTO users (username, password_hash, email) 
+                    INSERT INTO users (username, password, created_at) 
                     VALUES (%s, %s, %s)
-                """, (u, p, e if e else None))
+                """, (u, p, datetime.now()))
                 db.commit()
                 lbl_c_status.config(text=f"🟢 User '{u}' created successfully!", fg=GREEN)
-                ent_c_user.delete(0, 'end'); ent_c_pw.delete(0, 'end'); ent_c_email.delete(0, 'end')
+                ent_c_user.delete(0, 'end'); ent_c_pw.delete(0, 'end')
             except Error as err:
                 lbl_c_status.config(text=f"❌ Error: {err.msg}", fg=RED)
             finally:
@@ -279,7 +280,8 @@ class CryptoDashboard:
             try:
                 db = get_connection()
                 cursor = db.cursor()
-                cursor.execute("SELECT id FROM users WHERE username=%s AND password_hash=%s", (curr_u, pw))
+                # 🟢 [수정 사항]: 스키마에 맞춘 password 컬럼명 교정
+                cursor.execute("SELECT id FROM users WHERE username=%s AND password=%s", (curr_u, pw))
                 user_row = cursor.fetchone()
                 if not user_row:
                     lbl_u_status.config(text="❌ Invalid current username or password.", fg=RED)
@@ -322,7 +324,8 @@ class CryptoDashboard:
             try:
                 db = get_connection()
                 cursor = db.cursor()
-                cursor.execute("SELECT id FROM users WHERE username=%s AND password_hash=%s", (u, p))
+                # 🟢 [수정 사항]: 스키마에 맞춘 password 컬럼명 교정
+                cursor.execute("SELECT id FROM users WHERE username=%s AND password=%s", (u, p))
                 user_row = cursor.fetchone()
                 if not user_row:
                     lbl_d_status.config(text="❌ Authentication failed. Check info.", fg=RED)
@@ -416,12 +419,13 @@ class CryptoDashboard:
         try:
             db = get_connection()
             cursor = db.cursor()
-            coin      = self.selected_coin.get()
+            coin      = self.selected_coin.get() # 이제 대문자 (BTC, ETH, SOL)
             days_limit= self.selected_days.get()
             color     = COIN_COLORS[coin]
             cutoff    = (datetime.now() - timedelta(days=days_limit)).date()
 
             # ── Price records ──
+            # 🟢 [수정 사항]: price_data 테이블 설계에 맞춰 컬럼 매핑 교정
             cursor.execute("""
                 SELECT DATE(recorded_at) as dt,
                        AVG(price_usd),
@@ -451,6 +455,7 @@ class CryptoDashboard:
                 display_target = "Full Period"
 
             # ── Sentiment records ──
+            # 🟢 [수정 사항]: sentiment_data 테이블 구조에 맞춰 컬럼(score) 조회
             cursor.execute("""
                 SELECT DATE(recorded_at) as dt, AVG(score)
                 FROM sentiment_data
@@ -461,6 +466,7 @@ class CryptoDashboard:
             s_records = dict(cursor.fetchall())
 
             # Latest sentiment
+            # 🟢 [수정 사항]: sentiment_data 테이블 구조에 맞춰 컬럼(score, sentiment_label) 조회
             cursor.execute("""
                 SELECT score, sentiment_label FROM sentiment_data
                 ORDER BY recorded_at DESC LIMIT 1
@@ -470,12 +476,13 @@ class CryptoDashboard:
             today_label = sent_row[1] if sent_row else "Unknown"
 
             # Latest price change
+            # 🟢 [수정 사항]: price_data 테이블 구조에 맞춰 컬럼(price_change_24h) 조회
             cursor.execute("""
                 SELECT price_change_24h FROM price_data
                 WHERE coin_id = %s ORDER BY recorded_at DESC LIMIT 1
             """, (coin,))
             change_row = cursor.fetchone()
-            latest_change = float(change_row[0]) if change_row and change_row[0] else 0.0
+            latest_change = float(change_row[0]) if change_row and change_row[0] is not None else 0.0
 
             # Sync mood + price change
             synced_mood   = []
@@ -505,32 +512,32 @@ class CryptoDashboard:
                 status_txt  = "🟢 STRONG LINK\nPublic mood strongly predicts price"
                 theme_color = GREEN
                 summary     = (f"Over the {days_limit}-day window up to {display_target}, "
-                               f"{coin.upper()} price movements closely followed public "
+                               f"{coin} price movements closely followed public "
                                f"confidence scores. The connection is strong and meaningful.")
             elif abs(r_val) > 0.5:
                 status_txt  = "🟡 MODERATE LINK\nSome connection found"
                 theme_color = YELLOW
                 summary     = (f"Over the {days_limit}-day window up to {display_target}, "
-                               f"{coin.upper()} shows a moderate connection between public "
+                               f"{coin} shows a moderate connection between public "
                                f"mood and price. The link exists but is not always consistent.")
             elif abs(r_val) > 0.3:
                 status_txt  = "🟠 WEAK LINK\nVery limited connection"
                 theme_color = ORANGE
                 summary     = (f"Over the {days_limit}-day window up to {display_target}, "
-                               f"{coin.upper()} shows only a weak connection to public mood. "
+                               f"{coin} shows only a weak connection to public mood. "
                                f"Other factors dominate price movement.")
             else:
                 status_txt  = "🔴 NO MEANINGFUL LINK\nMood does not predict price"
                 theme_color = RED
                 summary     = (f"Over the {days_limit}-day window up to {display_target}, "
-                               f"{coin.upper()} price moved independently of public mood "
+                               f"{coin} price moved independently of public mood "
                                f"scores. This is a valid finding — markets are complex.")
 
             # Update left panel
             self.lbl_health_status.config(text=status_txt, fg=theme_color)
             self.health_card.config(highlightbackground=theme_color)
 
-            self.lbl_view_asset.config(text=coin.capitalize(), fg=color)
+            self.lbl_view_asset.config(text=coin, fg=color)
             self.lbl_view_price.config(text=f"${all_prices[-1]:,.2f}")
 
             change_color = GREEN if latest_change >= 0 else RED
